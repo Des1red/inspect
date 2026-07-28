@@ -50,7 +50,7 @@ func ping() {
 	ok, msg := internal.Ping()
 	fmt.Println(msg)
 	if !ok {
-		os.Exit(0)
+		fmt.Println("inspecting anyways.")
 	}
 }
 

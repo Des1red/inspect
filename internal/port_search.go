@@ -1,12 +1,28 @@
 package internal
 
 import (
+	"errors"
 	"inspect/internal/models"
 	"net"
+	"os"
 	"strconv"
 	"sync"
+	"syscall"
 	"time"
 )
+
+func classifyError(err error) string {
+	if errors.Is(err, os.ErrDeadlineExceeded) {
+		return "filtered"
+	}
+	var opErr *net.OpError
+	if errors.As(err, &opErr) {
+		if errors.Is(opErr.Err, syscall.ECONNREFUSED) {
+			return "closed"
+		}
+	}
+	return "filtered"
+}
 
 func port_search() {
 	ip := models.INFO.Target.String()
@@ -20,17 +36,24 @@ func port_search() {
 		for port := range ports {
 			address := net.JoinHostPort(ip, strconv.Itoa(port))
 			conn, err := net.DialTimeout("tcp", address, 500*time.Millisecond)
+
+			state := "open"
 			if err != nil {
-				continue
+				state = classifyError(err)
+			} else {
+				conn.Close()
 			}
-			conn.Close()
 
 			mu.Lock()
-			models.LOOT.Ports = append(models.LOOT.Ports, port)
-			models.LOOT.Details = append(models.LOOT.Details, models.PortDetail{
-				Port:  port,
-				State: "open",
-			})
+			if state != "closed" {
+				if state == "open" {
+					models.LOOT.Ports = append(models.LOOT.Ports, port)
+				}
+				models.LOOT.Details = append(models.LOOT.Details, models.PortDetail{
+					Port:  port,
+					State: state,
+				})
+			}
 			mu.Unlock()
 		}
 	}

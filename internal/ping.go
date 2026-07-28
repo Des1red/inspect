@@ -20,9 +20,9 @@ func Ping() (bool, string) {
 	status := check()
 	var msg string
 	if status {
-		msg = " is alive"
+		msg = " is accepting echo requests"
 	} else {
-		msg = " is dead"
+		msg = " is not accepting echo requests"
 	}
 	return status, models.INFO.TargetName + msg
 }

@@ -65,6 +65,20 @@ func help() {
 		),
 	)
 
+	fmt.Println("Targets:")
+	clihelp.Print(
+		clihelp.F(
+			"IP",
+			"192.168.1.10",
+			"scan a single IPv4 address",
+		),
+		clihelp.F(
+			"CIDR",
+			"192.168.1.0/24",
+			"scan an IPv4 subnet",
+		),
+	)
+
 	fmt.Println()
 	fmt.Println("Defaults:")
 	clihelp.Print(

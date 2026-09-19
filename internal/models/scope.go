@@ -8,6 +8,10 @@ import (
 var INFO struct {
 	TargetName string
 	Target     net.IP
+	Targets    []net.IP
+
+	PortStart int
+	PortEnd   int
 }
 
 type PortDetail struct {
@@ -18,7 +22,12 @@ type PortDetail struct {
 	Latency time.Duration
 }
 
-var LOOT struct {
+type HostResult struct {
+	Target  string
 	Ports   []int
 	Details []PortDetail
+}
+
+var LOOT struct {
+	Hosts []HostResult
 }

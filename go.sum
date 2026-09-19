@@ -1,3 +1,5 @@
+github.com/Des1red/clihelp v1.0.2 h1:3jE0u7B8y5oGdrUDfj6Vfa4tpmmwFUmSdMMae3ZWloY=
+github.com/Des1red/clihelp v1.0.2/go.mod h1:4sMd2I5rpd6Sqb/o9EC4P37OajqkQeZMzxGZ2TIPaTg=
 golang.org/x/net v0.57.0 h1:K5+3DljvIuDG9/Jv9rvyMywYNFCQ9RSUY6OOTTkT+tE=
 golang.org/x/net v0.57.0/go.mod h1:KpXc8iv+r3XplLAG/f7Jsf9RPszJzdR0f58q9vGOuEU=
 golang.org/x/sys v0.47.0 h1:o7XGOvZQCADBQQ4Y7VNq2dRWQR7JmOUW8Kxx4ZsNgWs=

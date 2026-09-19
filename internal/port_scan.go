@@ -9,28 +9,50 @@ import (
 )
 
 func sortPorts() {
-	sort.Slice(models.LOOT.Ports, func(i, j int) bool {
-		return models.LOOT.Ports[i] < models.LOOT.Ports[j]
-	})
-	sort.Slice(models.LOOT.Details, func(i, j int) bool {
-		return models.LOOT.Details[i].Port < models.LOOT.Details[j].Port
-	})
+	for i := range models.LOOT.Hosts {
+		host := &models.LOOT.Hosts[i]
+
+		sort.Ints(host.Ports)
+
+		sort.Slice(host.Details, func(i, j int) bool {
+			return host.Details[i].Port < host.Details[j].Port
+		})
+	}
 }
 
 func PortScan() bool {
 	port_search()
-	if len(models.LOOT.Ports) < 1 {
-		fmt.Println("no open ports found")
-		return false
-	} else {
-		sortPorts()
-		fmt.Print("open ports found : ")
-		strs := make([]string, len(models.LOOT.Ports))
-		for i, port := range models.LOOT.Ports {
+
+	sortPorts()
+
+	found := false
+
+	for _, host := range models.LOOT.Hosts {
+		if len(host.Ports) == 0 {
+			continue
+		}
+
+		found = true
+
+		strs := make([]string, len(host.Ports))
+
+		for i, port := range host.Ports {
 			strs[i] = strconv.Itoa(port)
 		}
-		fmt.Println(strings.Join(strs, ", "))
+
+		fmt.Printf(
+			"%s open ports : %s\n",
+			host.Target,
+			strings.Join(strs, ", "),
+		)
 	}
+
+	if !found {
+		fmt.Println("no open ports found")
+		return false
+	}
+
 	enrich()
+
 	return true
 }

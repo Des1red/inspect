@@ -85,20 +85,27 @@ func port_search() {
 
 			host := &models.LOOT.Hosts[job.hostIndex]
 
-			if state == "open" {
+			switch state {
+			case "open":
 				host.Ports = append(
 					host.Ports,
 					job.port,
 				)
-			}
 
-			host.Details = append(
-				host.Details,
-				models.PortDetail{
-					Port:  job.port,
-					State: state,
-				},
-			)
+				host.Details = append(
+					host.Details,
+					models.PortDetail{
+						Port:  job.port,
+						State: state,
+					},
+				)
+
+			case "filtered":
+				host.Filtered = append(
+					host.Filtered,
+					job.port,
+				)
+			}
 
 			mu.Unlock()
 		}

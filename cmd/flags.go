@@ -65,6 +65,7 @@ func help() {
 		),
 	)
 
+	fmt.Println()
 	fmt.Println("Targets:")
 	clihelp.Print(
 		clihelp.F(
@@ -77,6 +78,7 @@ func help() {
 			"192.168.1.0/24",
 			"scan an IPv4 subnet",
 		),
+		clihelp.F("*Target selection", "", "on runtime"),
 	)
 
 	fmt.Println()

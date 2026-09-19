@@ -7,7 +7,6 @@ import (
 
 var INFO struct {
 	TargetName string
-	Target     net.IP
 	Targets    []net.IP
 
 	PortStart int
@@ -23,9 +22,10 @@ type PortDetail struct {
 }
 
 type HostResult struct {
-	Target  string
-	Ports   []int
-	Details []PortDetail
+	Target   string
+	Ports    []int
+	Filtered []int
+	Details  []PortDetail
 }
 
 var LOOT struct {

@@ -1,10 +1,11 @@
 package internal
 
 import (
-	"fmt"
 	"inspect/internal/models"
 	"net"
 	"os"
+	"sort"
+	"sync"
 	"time"
 
 	"golang.org/x/net/icmp"
@@ -12,54 +13,101 @@ import (
 	"golang.org/x/net/ipv6"
 )
 
-func Ping() (bool, string) {
-	if ok := convert(models.INFO.TargetName); !ok {
-		fmt.Println("Invalid IP")
-		os.Exit(0)
-	}
-	status := check()
-	var msg string
-	if status {
-		msg = " is accepting echo requests"
-	} else {
-		msg = " is not accepting echo requests"
-	}
-	return status, models.INFO.TargetName + msg
+type pingResult struct {
+	ip    net.IP
+	alive bool
 }
 
-func convert(t string) bool {
-	ip := net.ParseIP(t)
-	if ip == nil {
-		return false
+func Ping() ([]net.IP, int) {
+	total := len(models.INFO.Targets)
+
+	if total == 0 {
+		return nil, 0
 	}
-	models.INFO.Target = ip
-	return true
+
+	jobs := make(chan net.IP, total)
+	results := make(chan pingResult, total)
+
+	var wg sync.WaitGroup
+
+	workerCount := 64
+
+	if total < workerCount {
+		workerCount = total
+	}
+
+	worker := func() {
+		defer wg.Done()
+
+		for ip := range jobs {
+			alive, _ := check(ip)
+
+			results <- pingResult{
+				ip:    ip,
+				alive: alive,
+			}
+		}
+	}
+
+	for i := 0; i < workerCount; i++ {
+		wg.Add(1)
+		go worker()
+	}
+
+	for _, ip := range models.INFO.Targets {
+		jobs <- ip
+	}
+
+	close(jobs)
+
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	live := make([]net.IP, 0, total)
+
+	for result := range results {
+		if result.alive {
+			live = append(live, result.ip)
+		}
+	}
+
+	sort.Slice(live, func(i, j int) bool {
+		return lessIP(live[i], live[j])
+	})
+
+	models.INFO.Targets = live
+
+	return live, total
 }
 
-func check() bool {
-	ip := models.INFO.Target
+func check(ip net.IP) (bool, error) {
 	isV4 := ip.To4() != nil
 
-	var network, laddr string
+	var network string
+	var laddr string
 	var typ icmp.Type
 	var replyType icmp.Type
+	var protoNum int
 
 	if isV4 {
 		network = "ip4:icmp"
 		laddr = "0.0.0.0"
 		typ = ipv4.ICMPTypeEcho
 		replyType = ipv4.ICMPTypeEchoReply
+		protoNum = 1
 	} else {
 		network = "ip6:ipv6-icmp"
 		laddr = "::"
 		typ = ipv6.ICMPTypeEchoRequest
 		replyType = ipv6.ICMPTypeEchoReply
+		protoNum = 58
 	}
 
 	conn, err := icmp.ListenPacket(network, laddr)
 	if err != nil {
-		fmt.Println("error:", err)
-		os.Exit(0)
+		return false, err
 	}
 	defer conn.Close()
 
@@ -75,40 +123,52 @@ func check() bool {
 			Data: []byte("ping"),
 		},
 	}
+
 	b, err := msg.Marshal(nil)
 	if err != nil {
-		fmt.Println("error:", err)
-		os.Exit(0)
+		return false, err
 	}
 
-	dst := &net.IPAddr{IP: ip}
+	dst := &net.IPAddr{
+		IP: ip,
+	}
+
 	if _, err := conn.WriteTo(b, dst); err != nil {
-		fmt.Println("error:", err)
-		os.Exit(0)
+		return false, err
 	}
 
-	conn.SetReadDeadline(time.Now().Add(3 * time.Second))
+	if err := conn.SetReadDeadline(
+		time.Now().Add(3 * time.Second),
+	); err != nil {
+		return false, err
+	}
+
 	reply := make([]byte, 1500)
 
-	var protoNum int
-	if isV4 {
-		protoNum = 1
-	} else {
-		protoNum = 58
-	}
-
 	for {
-		n, _, err := conn.ReadFrom(reply)
+		n, peer, err := conn.ReadFrom(reply)
 		if err != nil {
-			return false
+			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+				return false, nil
+			}
+
+			return false, err
 		}
 
-		rm, err := icmp.ParseMessage(protoNum, reply[:n])
-		if err != nil {
-			return false
+		peerIP, ok := peer.(*net.IPAddr)
+		if !ok {
+			continue
 		}
 
-		if rm.Type == typ {
+		if !peerIP.IP.Equal(ip) {
+			continue
+		}
+
+		rm, err := icmp.ParseMessage(
+			protoNum,
+			reply[:n],
+		)
+		if err != nil {
 			continue
 		}
 
@@ -117,10 +177,31 @@ func check() bool {
 		}
 
 		echo, ok := rm.Body.(*icmp.Echo)
-		if !ok || echo.ID != id || echo.Seq != seq {
+		if !ok {
 			continue
 		}
 
-		return true
+		if echo.ID != id || echo.Seq != seq {
+			continue
+		}
+
+		return true, nil
 	}
+}
+
+func lessIP(a, b net.IP) bool {
+	a4 := a.To4()
+	b4 := b.To4()
+
+	if a4 == nil || b4 == nil {
+		return a.String() < b.String()
+	}
+
+	for i := 0; i < 4; i++ {
+		if a4[i] != b4[i] {
+			return a4[i] < b4[i]
+		}
+	}
+
+	return false
 }

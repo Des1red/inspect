@@ -1,15 +1,12 @@
 package cmd
 
 import (
-	"encoding/binary"
 	"fmt"
 	"inspect/internal"
 	"inspect/internal/bootstrap"
 	"inspect/internal/models"
 	"inspect/internal/output"
-	"net"
 	"os"
-	"strconv"
 	"strings"
 	"text/tabwriter"
 )
@@ -17,9 +14,7 @@ import (
 var saveResults bool
 
 func flagcheck() {
-	// Defaults.
-	models.INFO.PortStart = 1
-	models.INFO.PortEnd = 65535
+	internal.SetDefaultPorts()
 
 	if len(os.Args) < 2 {
 		return
@@ -43,14 +38,10 @@ func flagcheck() {
 
 			i++
 
-			start, end, err := parsePorts(os.Args[i])
-			if err != nil {
+			if err := internal.SetPorts(os.Args[i]); err != nil {
 				fmt.Println("invalid port range:", err)
 				os.Exit(1)
 			}
-
-			models.INFO.PortStart = start
-			models.INFO.PortEnd = end
 
 		case "install":
 			bootstrap.Install()
@@ -76,61 +67,6 @@ func flagcheck() {
 	}
 }
 
-func parsePorts(value string) (int, int, error) {
-	value = strings.TrimSpace(value)
-
-	if value == "" {
-		return 0, 0, fmt.Errorf("empty port")
-	}
-
-	// Single port:
-	// -p 22
-	if !strings.Contains(value, "-") {
-		port, err := strconv.Atoi(value)
-		if err != nil {
-			return 0, 0, fmt.Errorf("%q is not a valid port", value)
-		}
-
-		if port < 1 || port > 65535 {
-			return 0, 0, fmt.Errorf("port must be between 1 and 65535")
-		}
-
-		return port, port, nil
-	}
-
-	// Port range:
-	// -p 1-22
-	parts := strings.SplitN(value, "-", 2)
-
-	if len(parts) != 2 {
-		return 0, 0, fmt.Errorf("invalid range %q", value)
-	}
-
-	start, err := strconv.Atoi(strings.TrimSpace(parts[0]))
-	if err != nil {
-		return 0, 0, fmt.Errorf("invalid starting port")
-	}
-
-	end, err := strconv.Atoi(strings.TrimSpace(parts[1]))
-	if err != nil {
-		return 0, 0, fmt.Errorf("invalid ending port")
-	}
-
-	if start < 1 || start > 65535 {
-		return 0, 0, fmt.Errorf("starting port must be between 1 and 65535")
-	}
-
-	if end < 1 || end > 65535 {
-		return 0, 0, fmt.Errorf("ending port must be between 1 and 65535")
-	}
-
-	if start > end {
-		return 0, 0, fmt.Errorf("starting port cannot be greater than ending port")
-	}
-
-	return start, end, nil
-}
-
 func target() {
 	fmt.Print("IP >> ")
 
@@ -142,117 +78,39 @@ func target() {
 	for x == "" {
 		fmt.Print("IP >> ")
 		fmt.Scanln(&x)
+
 		x = strings.TrimSpace(x)
 	}
 
-	targets, err := parseTargets(x)
-	if err != nil {
+	if err := internal.SetTarget(x); err != nil {
 		fmt.Println("invalid target:", err)
 		os.Exit(1)
 	}
-
-	models.INFO.TargetName = x
-	models.INFO.Targets = targets
-
-	if len(targets) == 1 {
-		models.INFO.Target = targets[0]
-	}
-}
-
-func parseTargets(value string) ([]net.IP, error) {
-	// CIDR target:
-	// 192.168.1.0/24
-	if strings.Contains(value, "/") {
-		return parseCIDR(value)
-	}
-
-	// Single IP.
-	ip := net.ParseIP(value)
-	if ip == nil {
-		return nil, fmt.Errorf("%q is not a valid IP address", value)
-	}
-
-	return []net.IP{ip}, nil
-}
-
-func parseCIDR(value string) ([]net.IP, error) {
-	ip, network, err := net.ParseCIDR(value)
-	if err != nil {
-		return nil, err
-	}
-
-	ipv4 := ip.To4()
-	if ipv4 == nil {
-		return nil, fmt.Errorf("CIDR scanning currently supports IPv4 only")
-	}
-
-	ones, bits := network.Mask.Size()
-
-	if bits != 32 {
-		return nil, fmt.Errorf("CIDR scanning currently supports IPv4 only")
-	}
-
-	hostBits := 32 - ones
-
-	// Prevent accidentally expanding something enormous like /0.
-	if hostBits > 16 {
-		return nil, fmt.Errorf(
-			"CIDR range is too large; minimum supported prefix is /16",
-		)
-	}
-
-	networkIP := ipv4.Mask(network.Mask)
-
-	start := binary.BigEndian.Uint32(networkIP)
-	count := uint32(1) << uint32(hostBits)
-
-	end := start + count - 1
-
-	/*
-		For normal IPv4 subnets, skip the network and broadcast
-		addresses.
-
-	*/
-	if count > 2 {
-		start++
-		end--
-	}
-
-	targets := make([]net.IP, 0, int(end-start+1))
-
-	for current := start; current <= end; current++ {
-		buf := make([]byte, 4)
-		binary.BigEndian.PutUint32(buf, current)
-
-		targets = append(targets, net.IP(buf))
-	}
-
-	return targets, nil
 }
 
 func ping() {
-	/*
-		Ping() is designed around one Target.
+	live, _ := internal.Ping()
 
-	*/
-	if len(models.INFO.Targets) > 1 {
-		fmt.Printf(
-			"target range contains %d hosts\n",
-			len(models.INFO.Targets),
-		)
-		return
+	hosts := make([]string, len(live))
+
+	for i, ip := range live {
+		hosts[i] = ip.String()
 	}
 
-	ok, msg := internal.Ping()
-	fmt.Println(msg)
+	fmt.Printf(
+		"accept icmp [%s]\n",
+		strings.Join(hosts, ", "),
+	)
 
-	if !ok {
-		fmt.Println("inspecting anyways.")
+	if len(live) == 0 {
+		os.Exit(0)
 	}
 }
 
 func ports() {
-	if ok := internal.PortScan(); !ok {
+	foundOpen, foundFiltered := internal.PortScan()
+
+	if !foundOpen && !foundFiltered {
 		os.Exit(0)
 	}
 }
@@ -302,9 +160,15 @@ func result() {
 func save() {
 	filename, err := output.Save()
 	if err != nil {
-		fmt.Println("failed to save results:", err)
+		fmt.Println(
+			"failed to save results:",
+			err,
+		)
 		return
 	}
 
-	fmt.Println("results saved to", filename)
+	fmt.Println(
+		"results saved to",
+		filename,
+	)
 }

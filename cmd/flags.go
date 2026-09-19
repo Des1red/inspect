@@ -16,6 +16,9 @@ func help() {
 	fmt.Println("  uninstall  remove the installed binary")
 	fmt.Println("  help       show this help message")
 	fmt.Println("  version    show version")
+
+	fmt.Println("flags:")
+	fmt.Println("  -s         save scan results as Markdown")
 }
 
 func version() {

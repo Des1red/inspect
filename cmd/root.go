@@ -6,4 +6,8 @@ func Run() {
 	ping()
 	ports()
 	result()
+
+	if saveResults {
+		save()
+	}
 }

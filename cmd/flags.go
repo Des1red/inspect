@@ -7,6 +7,8 @@ import (
 )
 
 func help() {
+	description := `A simple command-line IP scanner. Checks if a host is alive via ICMP echo, then performs a full TCP connect port scan and enriches open ports with service name, banner, and latency.`
+	fmt.Println(description)
 	fmt.Println("usage: inspect [command]")
 	fmt.Println()
 	fmt.Println("commands:")

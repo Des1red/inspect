@@ -18,6 +18,7 @@ type PortDetail struct {
 	State   string
 	Service string
 	Banner  string
+	Headers map[string][]string
 	Latency time.Duration
 }
 

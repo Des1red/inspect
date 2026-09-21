@@ -7,8 +7,16 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
+
+const enrichWorkers = 128
+
+type enrichJob struct {
+	hostIndex   int
+	detailIndex int
+}
 
 func lookupService(port int) string {
 	if name, ok := commonPorts[port]; ok {
@@ -19,94 +27,202 @@ func lookupService(port int) string {
 }
 
 func enrich() {
+	jobs := make(
+		chan enrichJob,
+		enrichWorkers,
+	)
+
+	var wg sync.WaitGroup
+
+	worker := func() {
+		defer wg.Done()
+
+		for job := range jobs {
+			enrichPort(
+				job.hostIndex,
+				job.detailIndex,
+			)
+		}
+	}
+
+	for i := 0; i < enrichWorkers; i++ {
+		wg.Add(1)
+		go worker()
+	}
+
 	for h := range models.LOOT.Hosts {
 		host := &models.LOOT.Hosts[h]
 
 		for i := range host.Details {
-			detail := &host.Details[i]
-
-			if detail.State != "open" {
+			if host.Details[i].State != "open" {
 				continue
 			}
 
-			service := lookupService(detail.Port)
-
-			var banner string
-			var latency time.Duration
-
-			switch service {
-			case "http", "http-proxy", "https":
-				b, l, ok := probeHTTP(
-					host.Target,
-					detail.Port,
-					service,
-				)
-
-				if !ok {
-					continue
-				}
-
-				banner = b
-				latency = l
-
-			default:
-				address := net.JoinHostPort(
-					host.Target,
-					strconv.Itoa(detail.Port),
-				)
-
-				start := time.Now()
-
-				conn, err := net.DialTimeout(
-					"tcp",
-					address,
-					500*time.Millisecond,
-				)
-
-				latency = time.Since(start)
-
-				if err != nil {
-					continue
-				}
-
-				conn.SetReadDeadline(
-					time.Now().Add(500 * time.Millisecond),
-				)
-
-				reader := bufio.NewReader(conn)
-
-				line, _ := reader.ReadString('\n')
-
-				banner = strings.TrimSpace(line)
-
-				conn.Close()
+			jobs <- enrichJob{
+				hostIndex:   h,
+				detailIndex: i,
 			}
-
-			detail.Service = service
-			detail.Banner = banner
-			detail.Latency = latency
 		}
+	}
+
+	close(jobs)
+
+	wg.Wait()
+}
+
+func enrichPort(
+	hostIndex int,
+	detailIndex int,
+) {
+	host := &models.LOOT.Hosts[hostIndex]
+	detail := &host.Details[detailIndex]
+
+	service := lookupService(
+		detail.Port,
+	)
+
+	detail.Service = service
+
+	switch service {
+	case "http",
+		"http-proxy",
+		"https":
+
+		enrichHTTP(
+			host.Target,
+			detail,
+			service,
+		)
+
+	default:
+		enrichTCP(
+			host.Target,
+			detail,
+		)
 	}
 }
 
-func probeHTTP(
+func enrichTCP(
 	ip string,
-	port int,
-	service string,
-) (string, time.Duration, bool) {
-
+	detail *models.PortDetail,
+) {
 	address := net.JoinHostPort(
 		ip,
-		strconv.Itoa(port),
+		strconv.Itoa(detail.Port),
 	)
 
 	start := time.Now()
 
-	var conn net.Conn
-	var err error
+	conn, err := net.DialTimeout(
+		"tcp",
+		address,
+		500*time.Millisecond,
+	)
 
+	detail.Latency =
+		time.Since(start)
+
+	if err != nil {
+		return
+	}
+
+	defer conn.Close()
+
+	conn.SetReadDeadline(
+		time.Now().Add(
+			500 * time.Millisecond,
+		),
+	)
+
+	reader := bufio.NewReader(
+		conn,
+	)
+
+	line, _ := reader.ReadString(
+		'\n',
+	)
+
+	detail.Banner =
+		strings.TrimSpace(line)
+}
+
+func enrichHTTP(
+	ip string,
+	detail *models.PortDetail,
+	service string,
+) {
+	address := net.JoinHostPort(
+		ip,
+		strconv.Itoa(detail.Port),
+	)
+
+	start := time.Now()
+
+	conn, err := openHTTPConnection(
+		address,
+		service,
+	)
+
+	detail.Latency =
+		time.Since(start)
+
+	if err != nil {
+		return
+	}
+
+	defer conn.Close()
+
+	conn.SetWriteDeadline(
+		time.Now().Add(
+			500 * time.Millisecond,
+		),
+	)
+
+	_, err = conn.Write(
+		[]byte(
+			"GET / HTTP/1.0\r\n" +
+				"Host: " + ip + "\r\n" +
+				"User-Agent: ipspect\r\n" +
+				"Connection: close\r\n" +
+				"\r\n",
+		),
+	)
+
+	if err != nil {
+		return
+	}
+
+	conn.SetReadDeadline(
+		time.Now().Add(
+			500 * time.Millisecond,
+		),
+	)
+
+	reader := bufio.NewReader(
+		conn,
+	)
+
+	line, err := reader.ReadString(
+		'\n',
+	)
+
+	if err != nil {
+		return
+	}
+
+	detail.Banner =
+		strings.TrimSpace(line)
+
+	detail.Headers =
+		grabHeaders(reader)
+}
+
+func openHTTPConnection(
+	address string,
+	service string,
+) (net.Conn, error) {
 	if service == "https" {
-		conn, err = tls.DialWithDialer(
+		return tls.DialWithDialer(
 			&net.Dialer{
 				Timeout: 500 * time.Millisecond,
 			},
@@ -116,39 +232,11 @@ func probeHTTP(
 				InsecureSkipVerify: true,
 			},
 		)
-	} else {
-		conn, err = net.DialTimeout(
-			"tcp",
-			address,
-			500*time.Millisecond,
-		)
 	}
 
-	latency := time.Since(start)
-
-	if err != nil {
-		return "", latency, false
-	}
-
-	defer conn.Close()
-
-	conn.SetWriteDeadline(
-		time.Now().Add(500 * time.Millisecond),
+	return net.DialTimeout(
+		"tcp",
+		address,
+		500*time.Millisecond,
 	)
-
-	conn.Write(
-		[]byte("GET / HTTP/1.0\r\n\r\n"),
-	)
-
-	conn.SetReadDeadline(
-		time.Now().Add(500 * time.Millisecond),
-	)
-
-	reader := bufio.NewReader(conn)
-
-	line, _ := reader.ReadString('\n')
-
-	banner := strings.TrimSpace(line)
-
-	return banner, latency, true
 }

@@ -63,10 +63,11 @@ func flagcheck() {
 			os.Exit(1)
 		}
 	}
-	internal.Target()
 }
 
 func scan() {
+	internal.Target()
+
 	portscan.Ping()
 	portscan.Ports()
 	portscan.Result()

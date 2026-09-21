@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"ipspect/internal/models"
 	"os"
+	"sort"
 	"strings"
 	"text/tabwriter"
 )
@@ -61,18 +62,59 @@ func Result() {
 			"PORT\tSTATE\tSERVICE\tBANNER\tLATENCY",
 		)
 
-		for _, d := range host.Details {
+		for _, detail := range host.Details {
 			fmt.Fprintf(
 				w,
 				"%d\t%s\t%s\t%s\t%s\n",
-				d.Port,
-				d.State,
-				d.Service,
-				d.Banner,
-				d.Latency,
+				detail.Port,
+				detail.State,
+				detail.Service,
+				detail.Banner,
+				detail.Latency,
+			)
+
+			printHeaders(
+				w,
+				detail.Headers,
 			)
 		}
 	}
 
 	w.Flush()
+}
+
+func printHeaders(
+	w *tabwriter.Writer,
+	headers map[string][]string,
+) {
+	if len(headers) == 0 {
+		return
+	}
+
+	keys := make(
+		[]string,
+		0,
+		len(headers),
+	)
+
+	for key := range headers {
+		keys = append(
+			keys,
+			key,
+		)
+	}
+
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		fmt.Fprintf(
+			w,
+			"\t\t%s\t%s\n",
+			key+":",
+			strings.Join(
+				headers[key],
+				", ",
+			),
+		)
+	}
 }

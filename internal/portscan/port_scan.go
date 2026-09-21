@@ -13,6 +13,7 @@ func sortPorts() {
 		host := &models.LOOT.Hosts[i]
 
 		sort.Ints(host.Ports)
+		sort.Ints(host.Closed)
 		sort.Ints(host.Filtered)
 
 		sort.Slice(host.Details, func(i, j int) bool {
@@ -35,18 +36,27 @@ func portScan() (bool, bool) {
 		if len(host.Ports) > 0 {
 			foundOpen = true
 
-			open := make([]string, len(host.Ports))
-
-			for i, port := range host.Ports {
-				open[i] = strconv.Itoa(port)
-			}
-
 			fmt.Printf(
 				"open     [%s]\n",
-				strings.Join(open, ", "),
+				formatPorts(host.Ports),
 			)
 		} else {
 			fmt.Println("open     []")
+		}
+
+		/*
+			Only display closed ports when
+			the user explicitly selected
+			ports with -p.
+
+			Default 1-65535 scans do not
+			print thousands of closed ports.
+		*/
+		if len(models.INFO.Ports) > 0 {
+			fmt.Printf(
+				"closed   [%s]\n",
+				formatPorts(host.Closed),
+			)
 		}
 
 		if len(host.Filtered) > 0 {
@@ -66,4 +76,24 @@ func portScan() (bool, bool) {
 	}
 
 	return foundOpen, foundFiltered
+}
+
+func formatPorts(
+	ports []int,
+) string {
+	values := make(
+		[]string,
+		len(ports),
+	)
+
+	for i, port := range ports {
+		values[i] = strconv.Itoa(
+			port,
+		)
+	}
+
+	return strings.Join(
+		values,
+		", ",
+	)
 }

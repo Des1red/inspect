@@ -3,8 +3,8 @@ package cmd
 import (
 	"fmt"
 
-	"inspect/internal/bootstrap"
-	"inspect/internal/models"
+	"ipspect/internal/bootstrap"
+	"ipspect/internal/models"
 
 	"github.com/Des1red/clihelp"
 )
@@ -16,8 +16,8 @@ func help() {
 	fmt.Println()
 
 	fmt.Println("Usage:")
-	fmt.Println("  inspect [command]")
-	fmt.Println("  inspect [flags]")
+	fmt.Println("  ipspect [command]")
+	fmt.Println("  ipspect [flags]")
 	fmt.Println()
 
 	fmt.Println("Commands:")

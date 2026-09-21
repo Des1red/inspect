@@ -6,7 +6,7 @@ import (
 	"os/exec"
 )
 
-const binName = "inspect"
+const binName = "ipspect"
 const installPath = "/usr/local/bin/" + binName
 const InstallPath = installPath
 

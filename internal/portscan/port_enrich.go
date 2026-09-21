@@ -1,9 +1,9 @@
-package internal
+package portscan
 
 import (
 	"bufio"
 	"crypto/tls"
-	"inspect/internal/models"
+	"ipspect/internal/models"
 	"net"
 	"strconv"
 	"strings"

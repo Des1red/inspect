@@ -3,8 +3,9 @@ package internal
 import (
 	"encoding/binary"
 	"fmt"
-	"inspect/internal/models"
+	"ipspect/internal/models"
 	"net"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -81,7 +82,28 @@ func SetPorts(value string) error {
 	return nil
 }
 
-func SetTarget(value string) error {
+func Target() {
+	fmt.Print("IP >> ")
+
+	var x string
+	fmt.Scanln(&x)
+
+	x = strings.TrimSpace(x)
+
+	for x == "" {
+		fmt.Print("IP >> ")
+		fmt.Scanln(&x)
+
+		x = strings.TrimSpace(x)
+	}
+
+	if err := setTarget(x); err != nil {
+		fmt.Println("invalid target:", err)
+		os.Exit(1)
+	}
+}
+
+func setTarget(value string) error {
 	value = strings.TrimSpace(value)
 
 	if value == "" {

@@ -1,4 +1,4 @@
-# inspect
+# ipspect
 
 A simple command-line IP scanner written in Go. Checks if a host is alive via ICMP echo, then performs a full TCP connect port scan and enriches open ports with service name, banner, and latency.
 
@@ -16,7 +16,7 @@ sudo go run main.go --install
 ## Usage
 
 ```
-sudo inspect
+sudo ipspect
 ```
 
 You'll be prompted for a target IP:
@@ -47,14 +47,14 @@ PORT   STATE  SERVICE      BANNER  LATENCY
 
 | Command     | Description                                  |
 |-------------|-----------------------------------------------|
-| `install`   | Build the binary and install it to `/usr/local/bin/inspect` |
+| `install`   | Build the binary and install it to `/usr/local/bin/ipspect` |
 | `uninstall` | Remove the installed binary                   |
 | `help`      | Show usage information                        |
 | `version`   | Show the current version                      |
 
 ```
 sudo go run main.go install
-sudo inspect
+sudo ipspect
 ```
 
 ## Project structure

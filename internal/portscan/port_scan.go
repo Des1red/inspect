@@ -1,8 +1,8 @@
-package internal
+package portscan
 
 import (
 	"fmt"
-	"inspect/internal/models"
+	"ipspect/internal/models"
 	"sort"
 	"strconv"
 	"strings"
@@ -21,7 +21,7 @@ func sortPorts() {
 	}
 }
 
-func PortScan() (bool, bool) {
+func portScan() (bool, bool) {
 	port_search()
 
 	sortPorts()

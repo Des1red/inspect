@@ -1,4 +1,4 @@
-# inspect — Technical Documentation
+# ipspect — Technical Documentation
 
 A Go command-line tool that checks whether a target host is alive via ICMP, then runs a concurrent TCP connect port scan across all 65535 ports and enriches each open port with service name, banner, and latency.
 
@@ -49,7 +49,7 @@ const Version = "0.1.0"
 
 ## Flow (`cmd.Run()`)
 
-1. **`flagcheck()`** — inspects `os.Args[1]`. If it matches `install`, `uninstall`, `help`, or `version`, handles it and exits immediately, skipping the scan flow entirely. Anything unrecognized prints an error plus help text and exits. No flag at all falls through to the scan flow below.
+1. **`flagcheck()`** — ipspects `os.Args[1]`. If it matches `install`, `uninstall`, `help`, or `version`, handles it and exits immediately, skipping the scan flow entirely. Anything unrecognized prints an error plus help text and exits. No flag at all falls through to the scan flow below.
 2. **`target()`** — prompts for an IP string on stdin, loops until non-empty input is given, trims whitespace, stores it in `models.INFO.TargetName`.
 3. **`ping()`** — calls `internal.Ping()`, prints the alive/dead message, exits if the host is unreachable or the IP was invalid.
 4. **`ports()`** — calls `internal.PortScan()`, exits if no open ports were found.
@@ -93,8 +93,8 @@ PORT   STATE  SERVICE      BANNER  LATENCY
 
 ## Install / uninstall (`bootstrap` package)
 
-- `Install()` — shells out to `go build -o inspect .`, then copies the resulting binary to `/usr/local/bin/inspect` (mode `0755`), then removes the local build artifact. Must be run from the project source directory. Requires root to write into `/usr/local/bin`.
-- `Uninstall()` — removes `/usr/local/bin/inspect`.
+- `Install()` — shells out to `go build -o ipspect .`, then copies the resulting binary to `/usr/local/bin/ipspect` (mode `0755`), then removes the local build artifact. Must be run from the project source directory. Requires root to write into `/usr/local/bin`.
+- `Uninstall()` — removes `/usr/local/bin/ipspect`.
 - `InstallPath` is exported for `cmd.help()` to reference in its usage text.
 
 ## Known constraints / open items

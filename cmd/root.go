@@ -2,10 +2,7 @@ package cmd
 
 func Run() {
 	flagcheck()
-	target()
-	ping()
-	ports()
-	result()
+	scan()
 
 	if saveResults {
 		save()

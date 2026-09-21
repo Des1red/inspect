@@ -1,4 +1,4 @@
-package internal
+package portscan
 
 var commonPorts = map[int]string{
 	1:     "tcpmux",

@@ -2,7 +2,7 @@ package output
 
 import (
 	"fmt"
-	"inspect/internal/models"
+	"ipspect/internal/models"
 	"os"
 	"strconv"
 	"strings"
@@ -30,7 +30,7 @@ func Save() (string, error) {
 
 	var b strings.Builder
 
-	b.WriteString("# Inspect Results\n\n")
+	b.WriteString("# ipspect Results\n\n")
 
 	fmt.Fprintf(
 		&b,

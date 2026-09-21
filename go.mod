@@ -1,4 +1,4 @@
-module inspect
+module ipspect
 
 go 1.26.2
 

@@ -1,6 +1,6 @@
 package main
 
-import "inspect/cmd"
+import "ipspect/cmd"
 
 func main() {
 	cmd.Run()

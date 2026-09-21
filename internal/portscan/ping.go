@@ -1,7 +1,7 @@
-package internal
+package portscan
 
 import (
-	"inspect/internal/models"
+	"ipspect/internal/models"
 	"net"
 	"os"
 	"sort"
@@ -18,7 +18,7 @@ type pingResult struct {
 	alive bool
 }
 
-func Ping() ([]net.IP, int) {
+func ping() ([]net.IP, int) {
 	total := len(models.INFO.Targets)
 
 	if total == 0 {

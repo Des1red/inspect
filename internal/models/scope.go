@@ -11,6 +11,9 @@ var INFO struct {
 
 	PortStart int
 	PortEnd   int
+
+	Ports    []int
+	PortSpec string
 }
 
 type PortDetail struct {
@@ -30,5 +33,6 @@ type HostResult struct {
 }
 
 var LOOT struct {
-	Hosts []HostResult
+	ICMPReachable []string
+	Hosts         []HostResult
 }

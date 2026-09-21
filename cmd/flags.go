@@ -60,7 +60,7 @@ func help() {
 		),
 		clihelp.F(
 			"-p",
-			"<start-end>",
+			"<start-end>,<single port>,<....>",
 			"scan a TCP port range",
 		),
 	)

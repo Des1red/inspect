@@ -12,7 +12,10 @@ import (
 func Ping() {
 	live, _ := ping()
 
-	hosts := make([]string, len(live))
+	hosts := make(
+		[]string,
+		len(live),
+	)
 
 	for i, ip := range live {
 		hosts[i] = ip.String()
@@ -22,10 +25,6 @@ func Ping() {
 		"accept icmp [%s]\n",
 		strings.Join(hosts, ", "),
 	)
-
-	if len(live) == 0 {
-		os.Exit(0)
-	}
 }
 
 func Ports() {

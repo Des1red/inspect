@@ -278,7 +278,15 @@ func ping() ([]net.IP, int) {
 		},
 	)
 
-	models.INFO.Targets = result
+	models.LOOT.ICMPReachable = make(
+		[]string,
+		len(result),
+	)
+
+	for i, ip := range result {
+		models.LOOT.ICMPReachable[i] =
+			ip.String()
+	}
 
 	return result, total
 }

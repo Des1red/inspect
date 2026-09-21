@@ -6,6 +6,7 @@ import (
 	"ipspect/internal/models"
 	"net"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -13,6 +14,8 @@ import (
 func SetDefaultPorts() {
 	models.INFO.PortStart = 1
 	models.INFO.PortEnd = 65535
+	models.INFO.Ports = nil
+	models.INFO.PortSpec = "1-65535"
 }
 
 func SetPorts(value string) error {
@@ -22,64 +25,169 @@ func SetPorts(value string) error {
 		return fmt.Errorf("empty port")
 	}
 
-	// Single port:
-	// 22
-	if !strings.Contains(value, "-") {
-		port, err := strconv.Atoi(value)
+	parts := strings.Split(
+		value,
+		",",
+	)
+
+	seen := make(
+		map[int]struct{},
+	)
+
+	var ports []int
+
+	for _, part := range parts {
+		part = strings.TrimSpace(
+			part,
+		)
+
+		if part == "" {
+			return fmt.Errorf(
+				"empty port in list",
+			)
+		}
+
+		if strings.Contains(
+			part,
+			"-",
+		) {
+			start, end, err :=
+				parsePortRange(part)
+
+			if err != nil {
+				return err
+			}
+
+			for port := start; port <= end; port++ {
+
+				if _, exists :=
+					seen[port]; exists {
+
+					continue
+				}
+
+				seen[port] =
+					struct{}{}
+
+				ports = append(
+					ports,
+					port,
+				)
+			}
+
+			continue
+		}
+
+		port, err :=
+			parseSinglePort(part)
+
 		if err != nil {
-			return fmt.Errorf("%q is not a valid port", value)
+			return err
 		}
 
-		if port < 1 || port > 65535 {
-			return fmt.Errorf("port must be between 1 and 65535")
+		if _, exists :=
+			seen[port]; exists {
+
+			continue
 		}
 
-		models.INFO.PortStart = port
-		models.INFO.PortEnd = port
+		seen[port] =
+			struct{}{}
 
-		return nil
-	}
-
-	// Port range:
-	// 1-22
-	parts := strings.SplitN(value, "-", 2)
-
-	start, err := strconv.Atoi(
-		strings.TrimSpace(parts[0]),
-	)
-	if err != nil {
-		return fmt.Errorf("invalid starting port")
-	}
-
-	end, err := strconv.Atoi(
-		strings.TrimSpace(parts[1]),
-	)
-	if err != nil {
-		return fmt.Errorf("invalid ending port")
-	}
-
-	if start < 1 || start > 65535 {
-		return fmt.Errorf(
-			"starting port must be between 1 and 65535",
+		ports = append(
+			ports,
+			port,
 		)
 	}
 
-	if end < 1 || end > 65535 {
+	if len(ports) == 0 {
 		return fmt.Errorf(
-			"ending port must be between 1 and 65535",
+			"no ports specified",
 		)
+	}
+
+	sort.Ints(ports)
+
+	models.INFO.Ports = ports
+	models.INFO.PortSpec = value
+
+	models.INFO.PortStart =
+		ports[0]
+
+	models.INFO.PortEnd =
+		ports[len(ports)-1]
+
+	return nil
+}
+
+func parseSinglePort(
+	value string,
+) (int, error) {
+	port, err := strconv.Atoi(
+		value,
+	)
+
+	if err != nil {
+		return 0, fmt.Errorf(
+			"%q is not a valid port",
+			value,
+		)
+	}
+
+	if port < 1 || port > 65535 {
+		return 0, fmt.Errorf(
+			"port must be between 1 and 65535",
+		)
+	}
+
+	return port, nil
+}
+
+func parsePortRange(
+	value string,
+) (int, int, error) {
+	parts := strings.SplitN(
+		value,
+		"-",
+		2,
+	)
+
+	if len(parts) != 2 {
+		return 0, 0, fmt.Errorf(
+			"invalid port range %q",
+			value,
+		)
+	}
+
+	start, err :=
+		parseSinglePort(
+			strings.TrimSpace(
+				parts[0],
+			),
+		)
+
+	if err != nil {
+		return 0, 0, err
+	}
+
+	end, err :=
+		parseSinglePort(
+			strings.TrimSpace(
+				parts[1],
+			),
+		)
+
+	if err != nil {
+		return 0, 0, err
 	}
 
 	if start > end {
-		return fmt.Errorf(
+		return 0, 0, fmt.Errorf(
 			"starting port cannot be greater than ending port",
 		)
 	}
 
-	models.INFO.PortStart = start
-	models.INFO.PortEnd = end
-
-	return nil
+	return start, end, nil
 }
 
 func Target() {

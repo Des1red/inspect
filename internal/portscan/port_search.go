@@ -45,6 +45,14 @@ func port_search() {
 
 	defer scanner.Close()
 
+	ports := scanPorts()
+
+	if len(ports) == 0 ||
+		len(models.INFO.Targets) == 0 {
+
+		return
+	}
+
 	models.LOOT.Hosts = make(
 		[]models.HostResult,
 		len(models.INFO.Targets),
@@ -64,10 +72,9 @@ func port_search() {
 	)
 
 	hostIndex := 0
-	port := models.INFO.PortStart
+	portIndex := 0
 
-	moreJobs :=
-		len(models.INFO.Targets) > 0
+	moreJobs := true
 
 	ticker := time.NewTicker(
 		10 * time.Millisecond,
@@ -76,7 +83,16 @@ func port_search() {
 	defer ticker.Stop()
 
 	for moreJobs || len(pending) > 0 {
-		// Fill the SYN window.
+		/*
+			Keep the SYN window full.
+
+			The selected ports may now be:
+
+			22
+			22,80,443
+			20-25
+			22,80,443,8000-8100
+		*/
 		for moreJobs &&
 			len(pending) < synWindow {
 
@@ -87,12 +103,13 @@ func port_search() {
 					Targets[hostIndex].
 					To4(),
 
-				port: port,
+				port: ports[portIndex],
 			}
 
 			advanceScanCursor(
 				&hostIndex,
-				&port,
+				&portIndex,
+				len(ports),
 				&moreJobs,
 			)
 
@@ -131,15 +148,13 @@ func port_search() {
 
 			seq := scanner.sequence()
 
-			now := time.Now()
-
 			probe := &pendingProbe{
 				job:     job,
 				srcIP:   srcIP,
 				srcPort: srcPort,
 				seq:     seq,
 
-				deadline: now.Add(
+				deadline: time.Now().Add(
 					synTimeout,
 				),
 			}
@@ -194,7 +209,9 @@ func port_search() {
 				continue
 			}
 
-			// SYN/ACK = OPEN.
+			/*
+				SYN/ACK = OPEN
+			*/
 			if reply.flags&tcpFlagSYN != 0 &&
 				reply.flags&tcpFlagACK != 0 {
 
@@ -210,9 +227,12 @@ func port_search() {
 					"open",
 				)
 
-				// Half-open scan:
-				// terminate before completing
-				// the TCP handshake.
+				/*
+					Half-open scan.
+
+					Do not complete the handshake.
+					Terminate it with RST.
+				*/
 				_ = scanner.sendRST(
 					probe.srcIP,
 					probe.job.ip,
@@ -232,7 +252,9 @@ func port_search() {
 				continue
 			}
 
-			// RST = CLOSED.
+			/*
+				RST = CLOSED
+			*/
 			if reply.flags&tcpFlagRST != 0 {
 				if reply.flags&tcpFlagACK != 0 &&
 					reply.ack != probe.seq+1 {
@@ -258,7 +280,6 @@ func port_search() {
 					continue
 				}
 
-				// No TCP reply in time.
 				recordPortState(
 					probe.job.hostIndex,
 					probe.job.port,
@@ -285,18 +306,52 @@ func port_search() {
 	}
 }
 
+func scanPorts() []int {
+	/*
+		If -p was supplied, SetPorts()
+		already expanded and sorted the
+		requested ports.
+	*/
+	if len(models.INFO.Ports) > 0 {
+		return models.INFO.Ports
+	}
+
+	/*
+		Default scan:
+		1-65535
+	*/
+	ports := make(
+		[]int,
+		0,
+		models.INFO.PortEnd-
+			models.INFO.PortStart+1,
+	)
+
+	for port :=
+		models.INFO.PortStart; port <= models.INFO.PortEnd; port++ {
+
+		ports = append(
+			ports,
+			port,
+		)
+	}
+
+	return ports
+}
+
 func advanceScanCursor(
 	hostIndex *int,
-	port *int,
+	portIndex *int,
+	portCount int,
 	moreJobs *bool,
 ) {
-	if *port < models.INFO.PortEnd {
-		*port++
+	*portIndex++
+
+	if *portIndex < portCount {
 		return
 	}
 
-	*port = models.INFO.PortStart
-
+	*portIndex = 0
 	*hostIndex++
 
 	if *hostIndex >=

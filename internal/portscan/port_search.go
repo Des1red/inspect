@@ -262,6 +262,12 @@ func port_search() {
 					continue
 				}
 
+				recordPortState(
+					probe.job.hostIndex,
+					probe.job.port,
+					"closed",
+				)
+
 				releaseProbe(
 					pending,
 					usedPorts,
@@ -383,6 +389,32 @@ func recordPortState(
 				State: state,
 			},
 		)
+
+	case "closed":
+		host.Closed = append(
+			host.Closed,
+			port,
+		)
+
+		/*
+			If the user explicitly selected ports
+			with -p, retain closed ports in Details
+			so Result() and saved output can show
+			the exact state.
+
+			For the default 1-65535 scan we avoid
+			creating tens of thousands of detail
+			rows for closed ports.
+		*/
+		if len(models.INFO.Ports) > 0 {
+			host.Details = append(
+				host.Details,
+				models.PortDetail{
+					Port:  port,
+					State: state,
+				},
+			)
+		}
 
 	case "filtered":
 		host.Filtered = append(

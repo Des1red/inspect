@@ -28,6 +28,7 @@ type PortDetail struct {
 type HostResult struct {
 	Target   string
 	Ports    []int
+	Closed   []int
 	Filtered []int
 	Details  []PortDetail
 }

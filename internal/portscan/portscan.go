@@ -28,11 +28,7 @@ func Ping() {
 }
 
 func Ports() {
-	foundOpen, foundFiltered := portScan()
-
-	if !foundOpen && !foundFiltered {
-		os.Exit(0)
-	}
+	portScan()
 }
 
 func Result() {
